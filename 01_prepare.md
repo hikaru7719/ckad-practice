@@ -23,5 +23,6 @@ AWSの場合はコントロールプレーンに対して課金がある。つ�
 awsclieを用いてkubeconfigを作成する。
 `aws eks --region ap-northeast-1 update-kubeconfig --name ${cluster_name}`で作成される。
 kubeconfigは`${HOME}/.kube/config`にできる。
+EKSの場合はクラスタを作成したIAMユーザーしか最初はログインできないので注意。
 
 kubectl get svcで結果が帰ってくればOK。
