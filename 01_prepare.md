@@ -26,3 +26,11 @@ kubeconfigは`${HOME}/.kube/config`にできる。
 EKSの場合はクラスタを作成したIAMユーザーしか最初はログインできないので注意。
 
 kubectl get svcで結果が帰ってくればOK。
+
+# kubectlの補完
+zshを使っていれば以下のコマンドでOK
+```
+cho "if [ $commands[kubectl] ]; then source <(kubectl completion zsh); fi" >> ~/.zshrc
+sourcen ~/.zshrc
+```
+これでtabで補完が聞くようになる。
