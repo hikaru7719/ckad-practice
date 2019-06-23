@@ -80,3 +80,60 @@ pod/nginx created
 ```
 kubectl run busybox --image=busybox --restart=Never -it -- env
 ```
+このコマンドを実行後標準出力に環境変数の一覧が表示される。
+
+```
+kubectl logs busybox
+```
+でもう一度確認することができる。
+
+## busyboxのpodを作成し、pod上でenvコマンドを実行する。（yaml）
+```
+kubect run busybox --image=busybox --restart=Never --dry-run -o yaml --command -- env > busybox.yml 
+```
+マニフェスト用のyamlファイルが出力される。
+
+```
+cat busybox.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: busybox
+  name: busybox
+spec:
+  containers:
+  - command:
+    - env
+    image: busybox
+    name: busybox
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+```
+
+kubernetesマニフェストではcommandが起動時に実行されるコマンドで、引き数がある場合にはargsで指定する。
+
+```
+kubectl apply -f busybox.yml
+kubectl logs busybox
+```
+マニフェストを適用し、コンテナのログをみる。
+
+## mynmsというnamespaceを作成するマニフェストを取得する(実際に作成することはしない)
+```
+kubectl create namespace mynms --dry-run -o yaml > mynms.yml
+```
+
+```
+cat mynms.yml
+apiVersion: v1
+kind: Namespace
+metadata:
+  creationTimestamp: null
+  name: mynms
+spec: {}
+status: {}
+```
