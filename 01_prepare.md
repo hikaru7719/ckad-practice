@@ -19,6 +19,10 @@ AWSの場合はコントロールプレーンに対して課金がある。つ�
 
 クラスタ作成には少し時間がかかる。
 
+# ワーカーノード用の設定
+- CloudFomationでワーカーノードの起動設定をする
+- クラスタにワーカーノードを追加する
+
 # kubeconfigの作成
 awsclieを用いてkubeconfigを作成する。
 `aws eks --region ap-northeast-1 update-kubeconfig --name ${cluster_name}`で作成される。
