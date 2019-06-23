@@ -23,6 +23,9 @@ AWSの場合はコントロールプレーンに対して課金がある。つ�
 - CloudFomationでワーカーノードの起動設定をする
 - クラスタにワーカーノードを追加する
 
+設定が完了したら
+`kubectl get node`で確認する
+
 # kubeconfigの作成
 awsclieを用いてkubeconfigを作成する。
 `aws eks --region ap-northeast-1 update-kubeconfig --name ${cluster_name}`で作成される。
