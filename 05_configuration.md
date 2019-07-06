@@ -182,3 +182,256 @@ var8  var9
 catr var8
 val8
 ```
+
+# SecurityContext
+
+## UID 101として実行するnignx Podの作成
+```
+ kubectl run nginx --image=nginx --restart=Never --dry-run -o yaml > security_context.yml
+ vim security_context.yml
+ apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx
+  name: nginx
+spec:
+  securityContext:
+    runAsUser: 101
+  containers:
+  - image: nginx
+    name: nginx
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+```
+
+## capabilityにNetAdmin,SYS_TIMEを付与してnginx podを実行する
+```
+kubectl run nginx --image=nginx --restart=Never --dry-run -o yaml > capability.yml
+vim capability.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx
+  name: nginx
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    resources: {}
+    securityContext:
+      capabilities:
+        add: ["NET_ADMIN", "SYS_TIME"]
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+```
+
+# RequestLimit
+## requestがcpu=100m, memory=256Mi limitsがcpu=200m, memory=512Miのnginx podの作成
+```
+kubectl run nginx --image=nginx --restart=Never --requests='cpu=100m,memory=256' --limits='cpu=200m,memory=512Mi'
+```
+```
+kubectl get pod nginx -o yaml --export
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx
+  name: nginx
+  selfLink: /api/v1/namespaces/default/pods/nginx
+spec:
+  containers:
+  - image: nginx
+    imagePullPolicy: Always
+    name: nginx
+    resources:
+      limits:
+        cpu: 200m
+        memory: 512Mi
+      requests:
+        cpu: 100m
+        memory: "256"
+    terminationMessagePath: /dev/termination-log
+    terminationMessagePolicy: File
+    volumeMounts:
+    - mountPath: /var/run/secrets/kubernetes.io/serviceaccount
+      name: default-token-bntv4
+      readOnly: true
+  dnsPolicy: ClusterFirst
+  nodeName: ip-192-168-196-192.ap-northeast-1.compute.internal
+  priority: 0
+  restartPolicy: Never
+  schedulerName: default-scheduler
+  securityContext: {}
+  serviceAccount: default
+  serviceAccountName: default
+  terminationGracePeriodSeconds: 30
+  tolerations:
+  - effect: NoExecute
+    key: node.kubernetes.io/not-ready
+    operator: Exists
+    tolerationSeconds: 300
+  - effect: NoExecute
+    key: node.kubernetes.io/unreachable
+    operator: Exists
+    tolerationSeconds: 300
+  volumes:
+  - name: default-token-bntv4
+    secret:
+      defaultMode: 420
+      secretName: default-token-bntv4
+status:
+  phase: Pending
+  qosClass: Burstable
+```
+
+# Secrets
+## fileからkey/valueを取得し,nameがmysecret2のSecreteを作成する
+```
+echo admin > username
+kubectl create secret generic mysecret2 --from-file=username
+```
+
+## 作成したSecretを確認する
+```
+kubectl get secret mysecret2 -o yaml --export
+apiVersion: v1
+data:
+  username: YWRtaW4K
+kind: Secret
+metadata:
+  creationTimestamp: null
+  name: mysecret2
+  selfLink: /api/v1/namespaces/default/secrets/mysecret2
+type: Opaque
+
+echo YWRtaW4K | base64 -D
+admin
+```
+
+```
+kubectl get secret mysecret2 -o jsonpath='{.data.username}{"\n"}' | base64 -D
+admin
+```
+## nginx podを作成し、mysecret2を/etc/fooにマウントする
+
+```
+kubectl run nginx --image=nginx --restart=Never --dry-run -o yaml > nginx_secret.yml
+vim nginx_secret.yml
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx
+  name: nginx
+spec:
+  volumes:
+  - name: foo
+    secret:
+      secretName: mysecret2
+  containers:
+  - image: nginx
+    name: nginx
+    resources: {}
+    volumeMounts:
+    - name: foo
+      mountPath: /etc/foo
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+```
+```
+kubectl apply -f nginx_secret.yml
+kubectl exec -it nginx -- /bin/sh
+root@nginx:/# cd /etc/foo
+root@nginx:/etc/foo# ls
+username
+root@nginx:/etc/foo# cat username
+admin
+root@nginx:/etc/foo#
+```
+
+## secretをpodの環境変数としてロードする
+```
+kubectl run nginx --image=nginx --restart=Never --dry-run -o yaml > nginx_secret_env.yml
+vim nginx_secret_env.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx
+  name: nginx
+spec:
+  containers:
+  - image: nginx
+    name: nginx
+    resources: {}
+    env:
+    - name: USERNAME
+      valueFrom:
+        secretKeyRef:
+          name: mysecret2
+          key: username
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+```
+```
+kubectl apply -f nginx_secret_env.yml
+kubectl exec nginx -- env | grep USERNAME
+USERNAME=admin
+```
+
+# ServiceAccount
+
+## 全てのNameSpaceのServiceAccountを取得する
+```
+kubectl get sa --all-namespaces
+NAMESPACE     NAME         SECRETS   AGE
+default       default      1         12d
+kube-public   default      1         12d
+kube-system   aws-node     1         12d
+kube-system   coredns      1         12d
+kube-system   default      1         12d
+kube-system   kube-proxy   1         12d
+``` 
+
+## myuserというServiceAccountを作成する
+```
+kubeclt create sa myuser
+```
+
+## nginx podを作成し、ServiceAccountとしてmyuserを指定する
+```
+kubectl run nginx --image=nginx --restart=Never -o yaml --dry-run > nginx_service_account.yml
+vim nginx_service_account.yml
+apiVersion: v1
+kind: Pod
+metadata:
+  creationTimestamp: null
+  labels:
+    run: nginx
+  name: nginx
+spec:
+  serviceAccountName: myuser
+  containers:
+  - image: nginx
+    name: nginx
+    resources: {}
+  dnsPolicy: ClusterFirst
+  restartPolicy: Never
+status: {}
+```
+```
+kubectl describe pod nginx
+```
+service accountのトークンがマウントされていることがわかる。
